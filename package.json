@@ -1,0 +1,22 @@
+{
+  "name": "big-size-test-programs",
+  "version": "1.0.0",
+  "description": "test the big size programs",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kensworth/big-size-test-programs.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kensworth/big-size-test-programs/issues"
+  },
+  "homepage": "https://github.com/kensworth/big-size-test-programs#readme",
+  "dependencies": {
+    "aws-sdk": "^2.7.9",
+    "express": "^4.14.0"
+  }
+}
