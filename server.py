@@ -9,6 +9,7 @@ import random
 address = "[::]"
 port = 8000
 
+# Test cases, hard-code for now
 test_cases = {
     1: 1,
     2: 1,
@@ -39,31 +40,32 @@ def output_performance(test_cases, code):
 
 
 class CodeEvaluatorServicer(code_eval.CodeEvaluatorServicer):
-  def Eval(self, request, context):
-    print("Got code:\n%s" % request.code)
-    res = output_performance(test_cases, request.code)
-    return code_eval.EvalReply(response=res, success=True, time_taken=0)
+    def Eval(self, request, context):
+        print("Got code:\n%s" % request.code)
+        res = output_performance(test_cases, request.code)
+        return code_eval.EvalReply(response=res, success=True, time_taken=0)
 
 
 # Serve the service on the address:port
 def serve():
-  server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-  code_eval.add_CodeEvaluatorServicer_to_server(CodeEvaluatorServicer(), server)
+    # Create server
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
+    code_eval.add_CodeEvaluatorServicer_to_server(CodeEvaluatorServicer(), server)
+    server.add_insecure_port('%s:%d' % (address, port))
 
-  # Bind to address:port
-  server.add_insecure_port('%s:%d' % (address, port))
+    # Start the server
+    server.start()
 
-  # Start the server
-  server.start()
-
-  # Loop indefinitely, to keep application alive
-  try:
-    while True:
-      # Sleep; nothing else to do
-      time.sleep(3600)
-  except KeyboardInterrupt:
-    # Stop server if user does Ctrl+C
-    server.stop(0)
+    # Loop indefinitely, to keep application alive
+    try:
+        while True:
+            # Sleep; nothing else to do
+            time.sleep(3600)
+    except KeyboardInterrupt:
+        # Stop server if user does Ctrl+C
+        server.stop(0)
 
 
-serve()
+# Run program if run as main
+if __name__ == "__main__":
+    serve()
