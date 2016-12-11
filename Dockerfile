@@ -11,8 +11,8 @@ COPY . /src
 
 # Install our requirements.
 RUN pip install -U pip
-RUN pip install -Ur requirements.txt
-RUN python -m grpc.tools.protoc -I. --python_out=. --grpc_python_out=. *.proto
+RUN pip install -Ur misc/requirements.txt
+RUN python -m grpc.tools.protoc -I. --python_out=proto/ --grpc_python_out=proto/ proto/*.proto
 
 EXPOSE  8000
-CMD ["python", "test-server.py"]
+CMD ["python", "server.py"]

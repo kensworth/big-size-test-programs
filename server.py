@@ -1,5 +1,5 @@
 import time
-import code_eval_pb2
+import proto.code_eval_pb2 as code_eval
 import grpc
 import concurrent.futures as futures
 import time
@@ -38,17 +38,17 @@ def output_performance(test_cases, code):
     return 'Test case failed.\n\tInput: %s\n\tExpected: %s but got %s instead.' % (first_failed_case[0], first_failed_case[1], first_failed_case[2])
 
 
-class CodeEvaluatorServicer(code_eval_pb2.CodeEvaluatorServicer):
+class CodeEvaluatorServicer(code_eval.CodeEvaluatorServicer):
   def Eval(self, request, context):
     print("Got code:\n%s" % request.code)
     res = output_performance(test_cases, request.code)
-    return code_eval_pb2.EvalReply(response=res, success=True, time_taken=0)
+    return code_eval.EvalReply(response=res, success=True, time_taken=0)
 
 
 # Serve the service on the address:port
 def serve():
   server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-  code_eval_pb2.add_CodeEvaluatorServicer_to_server(CodeEvaluatorServicer(), server)
+  code_eval.add_CodeEvaluatorServicer_to_server(CodeEvaluatorServicer(), server)
 
   # Bind to address:port
   server.add_insecure_port('%s:%d' % (address, port))

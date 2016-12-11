@@ -1,4 +1,4 @@
-import code_eval_pb2
+import proto.code_eval_pb2 as code_eval
 import grpc
 import sys
 
@@ -16,9 +16,9 @@ def main():
   code = f.read()
 
   channel = grpc.insecure_channel('%s:%d' % (address, port))
-  stub = code_eval_pb2.CodeEvaluatorStub(channel)
+  stub = code_eval.CodeEvaluatorStub(channel)
 
-  request = code_eval_pb2.EvalRequest()
+  request = code_eval.EvalRequest()
   request.code = code
 
   # Query the server
