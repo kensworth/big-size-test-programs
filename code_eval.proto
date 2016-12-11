@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package code_eval;
+
+service CodeEvaluator {
+  rpc Eval(EvalRequest) returns (EvalReply) {}
+}
+
+message EvalRequest {
+  string code = 1;
+}
+
+message EvalReply {
+  bool success = 1;
+  string response = 2;
+  int32 time_taken = 3;
+}
