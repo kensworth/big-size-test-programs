@@ -1,4 +1,13 @@
 import time
+import code_eval_pb2
+import grpc
+import concurrent.futures as futures
+import time
+import random
+
+# Our service's address
+address = "[::]"
+port = 8000
 
 test_cases = {
     1: 1,
@@ -9,20 +18,8 @@ test_cases = {
     6: 8
 }
 
-s = """
-def fib(n):
-    if n < 1:
-        return None
-    fib_matrix = [None] * (n + 1)
-    fib_matrix[0] = 1
-    fib_matrix[1] = 1
-    for i in range(2, n):
-        fib_matrix[i] = fib_matrix[i - 1] + fib_matrix[i - 2];
-    return fib_matrix[n - 1]
-"""
-exec s
-
-def match_test_cases(test_cases):
+def match_test_cases(test_cases, code):
+    exec(code)
     failed_cases = []
     start = time.time()
     for case, res in test_cases.items():
@@ -32,13 +29,41 @@ def match_test_cases(test_cases):
     end = time.time()
     return failed_cases, (end - start) * 1000
 
-def output_performance(test_cases):
-    failed_cases, runtime = match_test_cases(test_cases)
-    if not failed_cases:
-        print 'All cases passed! Runtime: ', runtime, 'ms'
-        return
-    first_failed_case = failed_cases[0]
-    print 'Test case failed. Input:', first_failed_case[0]
-    print 'Expected :', first_failed_case[1], 'but got', first_failed_case[2], 'instead'
 
-output_performance(test_cases)
+def output_performance(test_cases, code):
+    failed_cases, runtime = match_test_cases(test_cases, code)
+    if not failed_cases:
+        return 'All test cases passed! Runtime: %dms.' % runtime
+    first_failed_case = failed_cases[0]
+    return 'Test case failed.\n\tInput: %s\n\tExpected: %s but got %s instead.' % (first_failed_case[0], first_failed_case[1], first_failed_case[2])
+
+
+class CodeEvaluatorServicer(code_eval_pb2.CodeEvaluatorServicer):
+  def Eval(self, request, context):
+    print("Got code:\n%s" % request.code)
+    res = output_performance(test_cases, request.code)
+    return code_eval_pb2.EvalReply(response=res, success=True, time_taken=0)
+
+
+# Serve the service on the address:port
+def serve():
+  server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
+  code_eval_pb2.add_CodeEvaluatorServicer_to_server(CodeEvaluatorServicer(), server)
+
+  # Bind to address:port
+  server.add_insecure_port('%s:%d' % (address, port))
+
+  # Start the server
+  server.start()
+
+  # Loop indefinitely, to keep application alive
+  try:
+    while True:
+      # Sleep; nothing else to do
+      time.sleep(3600)
+  except KeyboardInterrupt:
+    # Stop server if user does Ctrl+C
+    server.stop(0)
+
+
+serve()
