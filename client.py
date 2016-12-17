@@ -16,10 +16,12 @@ def serve():
     start_docker()
 
     while True:
+        print("Waiting for message...")
         for message in queue.receive_messages(
             MessageAttributeNames=['Submission'],
             WaitTimeSeconds=20
         ):
+            print("Received message")
             code = ''
             if message.message_attributes is not None:
                 code = message.message_attributes.get('Submission').get('StringValue')
@@ -37,11 +39,6 @@ def serve():
 def start_docker():
     # Run ./scripts/run_docker.sh
     p = subprocess.Popen(["sh", "scripts/run_docker.sh"]).wait()
-    time.sleep(1)
-
-def stop_docker():
-    # Run ./scripts/kill_docker.sh
-    p = subprocess.Popen(["sh", "scripts/kill_docker.sh"]).wait()
     time.sleep(1)
 
 def test(code):
