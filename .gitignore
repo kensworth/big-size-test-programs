@@ -2,3 +2,4 @@ node_modules
 env
 *_pb2.py
 *.pyc
+*.swp

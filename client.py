@@ -1,6 +1,8 @@
 import proto.code_eval_pb2 as code_eval
+import subprocess
 import grpc
 import sys
+import time
 
 address = "localhost"
 port = 8000
@@ -14,6 +16,9 @@ def main():
 
     f = open(sys.argv[1], 'r')
     code = f.read()
+
+    p = subprocess.Popen(["sh", "scripts/run_docker.sh"]).wait()
+    time.sleep(1)
 
     channel = grpc.insecure_channel('%s:%d' % (address, port))
     stub = code_eval.CodeEvaluatorStub(channel)
