@@ -43,6 +43,7 @@ def serve():
             print('Got tests: {0}'.format(tests))
 
             results = test(code, tests)
+            print(results.failed_case)
 
             return_queue.send_message(MessageBody="Response", MessageAttributes={
                 'ID': {

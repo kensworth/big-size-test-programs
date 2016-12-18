@@ -44,7 +44,7 @@ def run_test_case(test_case):
     in_fd, out_fd = os.pipe()
 
     start = time.time()
-    p = subprocess.Popen(["python", test_fn, test_case, str(out_fd)])
+    p = subprocess.Popen(["python", test_fn, test_case, str(out_fd)], stdout=subprocess.PIPE)
     stdout, stderr = p.communicate()
     end = time.time()
     time_taken = (end - start) * 1000
