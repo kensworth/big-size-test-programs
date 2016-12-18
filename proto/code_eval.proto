@@ -14,4 +14,5 @@ message EvalReply {
   bool success = 1;
   string response = 2;
   double time_taken = 3;
+  string expected_output = 4;
 }

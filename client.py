@@ -9,8 +9,10 @@ address = "localhost"
 port = 8000
 
 sqs_url = "https://sqs.us-east-1.amazonaws.com/542342679377/SubmissionQueue"
+sqs_return_url = "https://sqs.us-east-1.amazonaws.com/542342679377/ReturnQueue"
 sqs = boto3.resource('sqs')
 queue = sqs.get_queue_by_name(QueueName='SubmissionQueue')
+return_queue = sqs.get_queue_by_name(QueueName = 'ReturnQueue')
 
 def serve():
     start_docker()
@@ -28,13 +30,25 @@ def serve():
 
             print('Got code: {0}'.format(code))
 
-            test(code)
+            results = test(code)
+
+            
+            return_queue.send_message(MessageBody=code, MessageAttributes={
+                'ID': {
+                    'DataType': 'String',
+                    'StringValue': 'hi'
+                 },
+                'Results':{
+                    'DataType': 'String',
+                    'StringValue': results
+                } 
+                
+            })
 
             # Let the queue know that the message is processed
             message.delete()
 
             start_docker()
-
 
 def start_docker():
     # Run ./scripts/run_docker.sh
@@ -55,6 +69,7 @@ def test(code):
 
     # Print the response
     print(reply.response)
+    return reply.response
 
 
 # Print how to start program via command-line

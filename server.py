@@ -5,6 +5,7 @@ import grpc
 import time
 import random
 import subprocess
+import json
 
 # Our service's address
 address = "[::]"
@@ -13,8 +14,6 @@ port = 8000
 # Test cases, hard-code for now
 test_fn = "test.py"
 prog_name = "fib"
-prog_call_sig = [int]
-prog_ret_sig = [int]
 test_cases = {
     1: 1,
     2: 1,
@@ -29,8 +28,8 @@ python_template = '''%s
 import sys
 if __name__ == "__main__":
     try:
-        ret = %s(%s)
-        expected = %s
+        ret = %s(json.loads(%s))
+        expected = json.loads(%s)
         if ret == expected:
             print("Test case passed.")
             sys.exit(0)
@@ -41,9 +40,7 @@ if __name__ == "__main__":
         import inspect
         frame = inspect.trace()[-1]
         print("Line %%d: %%s: %%s" %% (frame[2], type(e).__name__, e))
-        sys.exit(1)
-'''
-
+        sys.exit(1) '''
 
 def run_test_case(test_input, expected_output):
     p = subprocess.Popen(["python", test_fn, str(test_input), str(expected_output)], stdout=subprocess.PIPE)
@@ -61,7 +58,6 @@ def match_test_cases(test_cases, code):
     end = time.time()
     return failed_cases, (end - start) * 1000
 
-
 def output_performance(test_cases, code):
     failed_cases, runtime = match_test_cases(test_cases, code)
 
@@ -73,38 +69,19 @@ def output_performance(test_cases, code):
     res = 'Test case failed.\nInput: %s\n%s' % (first_fail[0], first_fail[1])
     return False, 0, res
 
-
 class CodeEvaluatorServicer(code_eval.CodeEvaluatorServicer):
     def Eval(self, request, context):
         write_to_file(test_fn, request.code) 
         success, time, res = output_performance(test_cases, request.code)
         return code_eval.EvalReply(response=res, success=success, time_taken=time)
 
-
 def debug_print(string):
     print(string)
 
-
-def make_sig(call_types, ret_types):
-    call_sig = ""
-    ret_sig = ""
-    sys_arg_ind = 1
-
-    call_fmt = "%s(sys.argv[%d])"
-    for t in call_types:
-        call_sig += call_fmt % (t.__name__, sys_arg_ind)
-        sys_arg_ind += 1
-
-    ret_fmt = "%s(sys.argv[%d])"
-    for t in ret_types:
-        ret_sig += call_fmt % (t.__name__, sys_arg_ind)
-        sys_arg_ind += 1
-
-    return call_sig, ret_sig
-
 def write_to_file(filename, code):
-    call_sig, ret_sig = make_sig(prog_call_sig, prog_ret_sig)
-    content = python_template % (code, prog_name, call_sig, ret_sig)
+    call_fmt = "sys.argv[1]"
+    ret_fmt = "sys.argv[2]"
+    content = python_template % (code, prog_name, call_fmt, ret_fmt)
     debug_print("Writing to file: %s:\n%s" % (filename, content))
     f = open(filename, 'w')
     f.write(content)
@@ -112,7 +89,6 @@ def write_to_file(filename, code):
 
 def delete_file(filename):
     os.remove(filename)
-
 
 # Serve the service on the address:port
 def serve():
@@ -132,7 +108,6 @@ def serve():
     except KeyboardInterrupt:
         # Stop server if user does Ctrl+C
         server.stop(0)
-
 
 # Run program if run as main
 if __name__ == "__main__":
