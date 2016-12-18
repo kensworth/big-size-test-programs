@@ -47,13 +47,24 @@ def serve():
             return_queue.send_message(MessageBody=code, MessageAttributes={
                 'ID': {
                     'DataType': 'String',
-                    'StringValue': 'hi'
-                 },
-                'Results':{
+                    'StringValue': 'tempId'
+                },
+                'Success':{
+                    'DataType': 'Number',
+                    'BinaryValue': results.success
+                },
+                'ErrorMessage':{
                     'DataType': 'String',
-                    'StringValue': results
+                    'StringValue': results.err_msg
+                },
+                'TimeTaken':{
+                    'DataType': 'Number',
+                    'BinaryValue': results.time_taken
+                },
+                'FailedCase':{
+                    'DataType': 'String',
+                    'StringValue': results.failed_case
                 } 
-                
             })
 
             # Let the queue know that the message is processed
@@ -81,7 +92,7 @@ def test(code, tests):
 
     # Print the response
     print(reply.err_msg)
-    return reply.err_msg
+    return reply
 
 
 # Print how to start program via command-line
