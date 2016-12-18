@@ -66,7 +66,7 @@ def run_all_test_cases(test_cases, code):
         rc, time, result, stdout = run_test_case(json_case)
         time_taken += time
         if rc != 0:
-            failed_cases.append((ind, result))
+            failed_cases.append((ind, result, stdout))
     return failed_cases, time_taken
 
 def parse_test_results(test_cases, failed_cases):
@@ -77,6 +77,7 @@ def parse_test_results(test_cases, failed_cases):
     first_fail = failed_cases[0]
     fail_info = test_cases[first_fail[0]]
     fail_info["output"] = first_fail[1]
+    fail_info["stdout"] = first_fail[2]
     res = 'Test case failed.\nInput: %s\nExpected: %s\nGot: %s' % \
         (str(json.dumps(fail_info["input"])), fail_info["expected"], fail_info["output"])
     fail_info_json = json.dumps(fail_info)
