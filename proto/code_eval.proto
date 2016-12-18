@@ -8,11 +8,12 @@ service CodeEvaluator {
 
 message EvalRequest {
   string code = 1;
+  string test_cases = 2;
 }
 
 message EvalReply {
   bool success = 1;
-  string response = 2;
+  string err_msg = 2;
   double time_taken = 3;
-  string expected_output = 4;
+  string failed_case = 4;
 }

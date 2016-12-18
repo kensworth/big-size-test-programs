@@ -1,2 +1,4 @@
+client.py
+test_client.py
 env
-*_pb2.py
+proto/*_pb2.py

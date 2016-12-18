@@ -20,19 +20,30 @@ def serve():
     while True:
         print("Waiting for message...")
         for message in queue.receive_messages(
-            MessageAttributeNames=['Submission'],
+            MessageAttributeNames=['Submission', 'Tests'],
             WaitTimeSeconds=20
         ):
             print("Received message")
+
             code = ''
+            tests = ''
             if message.message_attributes is not None:
-                code = message.message_attributes.get('Submission').get('StringValue')
+                msgSubmission = message.message_attributes.get('Submission')
+                if msgSubmission is not None:
+                    code = msgSubmission.get('StringValue')
+                msgTests = message.message_attributes.get('Tests')
+                if msgTests is not None:
+                    tests = msgTests.get('StringValue')
+                else:
+                    f = open('test/testcases.json', 'r')
+                    tests = f.read()
+                    f.close()
 
             print('Got code: {0}'.format(code))
+            print('Got tests: {0}'.format(tests))
 
-            results = test(code)
+            results = test(code, tests)
 
-            
             return_queue.send_message(MessageBody=code, MessageAttributes={
                 'ID': {
                     'DataType': 'String',
@@ -55,7 +66,7 @@ def start_docker():
     p = subprocess.Popen(["sh", "scripts/run_docker.sh"]).wait()
     time.sleep(1)
 
-def test(code):
+def test(code, tests):
     # Connect to server
     channel = grpc.insecure_channel('%s:%d' % (address, port))
     stub = code_eval.CodeEvaluatorStub(channel)
@@ -63,13 +74,14 @@ def test(code):
     # Form request
     request = code_eval.EvalRequest()
     request.code = code
+    request.test_cases = tests
 
     # Query the server
     reply = stub.Eval(request)
 
     # Print the response
-    print(reply.response)
-    return reply.response
+    print(reply.err_msg)
+    return reply.err_msg
 
 
 # Print how to start program via command-line
@@ -79,4 +91,7 @@ def printUsage():
 
 # Run program if run as main
 if __name__ == "__main__":
-    serve()
+    try:
+        serve()
+    except KeyboardInterrupt:
+        exit(0)

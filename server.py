@@ -11,26 +11,19 @@ import json
 address = "[::]"
 port = 8000
 
-# Test cases, hard-code for now
-test_fn = "test.py"
-prog_name = "fib"
-test_cases = {
-    1: 1,
-    2: 1,
-    3: 2,
-    4: 3,
-    5: 5,
-    6: 8
-}
 
 # Template for generated .py file
+test_fn = "test.py"
 python_template = '''%s
 import sys
+import json
 if __name__ == "__main__":
     try:
-        ret = %s(json.loads(%s))
-        expected = json.loads(%s)
-        if ret == expected:
+        test = json.loads(sys.argv[1])
+        input_values = test["input"]
+        expected_output = test["expected"]
+        ret = %s(**input_values)
+        if ret == expected_output:
             print("Test case passed.")
             sys.exit(0)
         else:
@@ -40,55 +33,66 @@ if __name__ == "__main__":
         import inspect
         frame = inspect.trace()[-1]
         print("Line %%d: %%s: %%s" %% (frame[2], type(e).__name__, e))
-        sys.exit(1) '''
+        sys.exit(1)
+'''
 
-def run_test_case(test_input, expected_output):
-    p = subprocess.Popen(["python", test_fn, str(test_input), str(expected_output)], stdout=subprocess.PIPE)
+
+
+def run_test_case(test_case):
+    p = subprocess.Popen(["python", test_fn, test_case], stdout=subprocess.PIPE)
     output, err = p.communicate()
     rc = p.returncode
     return rc, output
 
-def match_test_cases(test_cases, code):
+def run_all_test_cases(test_cases, code):
     failed_cases = []
-    start = time.time()
-    for case, res in test_cases.items():
-        rc, output = run_test_case(case, res)
+    time_taken = 0
+    for ind, test_case in enumerate(test_cases):
+        json_case = json.dumps(test_case)
+        start = time.time()
+        rc, output = run_test_case(json_case)
+        end = time.time()
+        time_taken += (end - start) * 1000
         if rc != 0:
-            failed_cases.append((case, output))
-    end = time.time()
-    return failed_cases, (end - start) * 1000
+            failed_cases.append((ind, output))
+    return failed_cases, time_taken
 
-def output_performance(test_cases, code):
-    failed_cases, runtime = match_test_cases(test_cases, code)
-
+def parse_test_results(test_cases, failed_cases):
     if not failed_cases:
-        res = 'All test cases passed!\nRuntime: %dms.' % runtime
-        return True, runtime, res
+        res = 'All test cases passed!'
+        return True, res, None
 
     first_fail = failed_cases[0]
-    res = 'Test case failed.\nInput: %s\n%s' % (first_fail[0], first_fail[1])
-    return False, 0, res
+    fail_info = test_cases[first_fail[0]]
+    fail_info["output"] = first_fail[1]
+    res = 'Test case failed.\nInput: %s\nExpected: %s\nGot: %s' % \
+        (str(json.dumps(fail_info["input"])), fail_info["expected"], fail_info["output"])
+    fail_info_json = json.dumps(fail_info)
+    return False, res, fail_info_json
+
 
 class CodeEvaluatorServicer(code_eval.CodeEvaluatorServicer):
     def Eval(self, request, context):
-        write_to_file(test_fn, request.code) 
-        success, time, res = output_performance(test_cases, request.code)
-        return code_eval.EvalReply(response=res, success=success, time_taken=time)
+        tests_json = json.loads(request.test_cases)
+        tests = tests_json["tests"]
+        prog_name = tests_json["program_name"]
+        code = request.code
 
-def debug_print(string):
-    print(string)
+        write_to_file(test_fn, prog_name, code)
+        failed_tests, time_taken = run_all_test_cases(tests, code)
+        success, err_msg, failed_case = parse_test_results(tests, failed_tests)
+        return code_eval.EvalReply(success=success, err_msg=err_msg, time_taken=time_taken, failed_case=failed_case)
 
-def write_to_file(filename, code):
-    call_fmt = "sys.argv[1]"
-    ret_fmt = "sys.argv[2]"
-    content = python_template % (code, prog_name, call_fmt, ret_fmt)
-    debug_print("Writing to file: %s:\n%s" % (filename, content))
+
+def write_to_file(filename, prog_name, code):
+    content = python_template % (code, prog_name)
     f = open(filename, 'w')
     f.write(content)
     f.close()
 
 def delete_file(filename):
     os.remove(filename)
+
 
 # Serve the service on the address:port
 def serve():
@@ -100,13 +104,10 @@ def serve():
     # Start the server
     server.start()
 
-    # Loop indefinitely, to keep application alive
     try:
         while True:
-            # Sleep; nothing else to do
             time.sleep(3600)
     except KeyboardInterrupt:
-        # Stop server if user does Ctrl+C
         server.stop(0)
 
 # Run program if run as main
