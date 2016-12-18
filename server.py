@@ -73,7 +73,11 @@ def parse_test_results(test_cases, failed_cases):
 
 class CodeEvaluatorServicer(code_eval.CodeEvaluatorServicer):
     def Eval(self, request, context):
-        tests_json = json.loads(request.test_cases)
+        try:
+            tests_json = json.loads(request.test_cases)
+        except Exception:
+            return code_eval.EvalReply(success=False)
+
         tests = tests_json["tests"]
         prog_name = tests_json["program_name"]
         code = request.code
