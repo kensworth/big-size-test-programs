@@ -44,26 +44,26 @@ def serve():
 
             results = test(code, tests)
 
-            return_queue.send_message(MessageBody=code, MessageAttributes={
+            return_queue.send_message(MessageBody="Response", MessageAttributes={
                 'ID': {
                     'DataType': 'String',
                     'StringValue': 'tempId'
                 },
                 'Success':{
                     'DataType': 'Number',
-                    'BinaryValue': results.success
+                    'StringValue': ("1" if results.success else "0")
                 },
                 'ErrorMessage':{
                     'DataType': 'String',
-                    'StringValue': results.err_msg
+                    'StringValue': (results.err_msg if results.err_msg != "" else "N/A")
                 },
                 'TimeTaken':{
                     'DataType': 'Number',
-                    'BinaryValue': results.time_taken
+                    'StringValue': str(results.time_taken)
                 },
                 'FailedCase':{
                     'DataType': 'String',
-                    'StringValue': results.failed_case
+                    'StringValue': (results.failed_case if results.failed_case != "" else "{}")
                 } 
             })
 

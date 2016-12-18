@@ -17,44 +17,56 @@ test_fn = "test.py"
 python_template = '''%s
 import sys
 import json
+import os
 if __name__ == "__main__":
     try:
         test = json.loads(sys.argv[1])
         input_values = test["input"]
         expected_output = test["expected"]
         ret = %s(**input_values)
+        parent_fd = int(sys.argv[2])
         if ret == expected_output:
-            print("Test case passed.")
+            os.write(parent_fd, "Test case passed.")
             sys.exit(0)
         else:
-            print("%%s" %% ret)
+            os.write(parent_fd, "%%s" %% ret)
             sys.exit(1)
     except Exception as e:
         import inspect
         frame = inspect.trace()[-1]
-        print("Line %%d: %%s: %%s" %% (frame[2], type(e).__name__, e))
+        os.write(parent_fd, "Line %%d: %%s: %%s" %% (frame[2], type(e).__name__, e))
         sys.exit(1)
 '''
 
 
 
 def run_test_case(test_case):
-    p = subprocess.Popen(["python", test_fn, test_case], stdout=subprocess.PIPE)
-    output, err = p.communicate()
+    in_fd, out_fd = os.pipe()
+
+    start = time.time()
+    p = subprocess.Popen(["python", test_fn, test_case, str(out_fd)])
+    stdout, stderr = p.communicate()
+    end = time.time()
+    time_taken = (end - start) * 1000
+
+    result = os.read(in_fd, 1024)
+
+    os.close(in_fd)
+    os.close(out_fd)
+
     rc = p.returncode
-    return rc, output
+
+    return rc, time_taken, result, stdout
 
 def run_all_test_cases(test_cases, code):
     failed_cases = []
     time_taken = 0
     for ind, test_case in enumerate(test_cases):
         json_case = json.dumps(test_case)
-        start = time.time()
-        rc, output = run_test_case(json_case)
-        end = time.time()
-        time_taken += (end - start) * 1000
+        rc, time, result, stdout = run_test_case(json_case)
+        time_taken += time
         if rc != 0:
-            failed_cases.append((ind, output))
+            failed_cases.append((ind, result))
     return failed_cases, time_taken
 
 def parse_test_results(test_cases, failed_cases):
