@@ -18,13 +18,16 @@ python_template = '''%s
 import sys
 import json
 import os
+import inspect
 if __name__ == "__main__":
+    parent_fd = int(sys.argv[2])
     try:
         test = json.loads(sys.argv[1])
         input_values = test["input"]
         expected_output = test["expected"]
         ret = %s(**input_values)
-        parent_fd = int(sys.argv[2])
+        if parent_fd == None:
+            sys.exit(0)
         if ret == expected_output:
             os.write(parent_fd, "Test case passed.")
             sys.exit(0)
@@ -32,7 +35,6 @@ if __name__ == "__main__":
             os.write(parent_fd, "%%s" %% ret)
             sys.exit(1)
     except Exception as e:
-        import inspect
         frame = inspect.trace()[-1]
         os.write(parent_fd, "Line %%d: %%s: %%s" %% (frame[2], type(e).__name__, e))
         sys.exit(1)
@@ -44,6 +46,7 @@ def run_test_case(test_case):
     in_fd, out_fd = os.pipe()
 
     start = time.time()
+    print(["python", test_fn, test_case, str(out_fd)])
     p = subprocess.Popen(["python", test_fn, test_case, str(out_fd)], stdout=subprocess.PIPE)
     stdout, stderr = p.communicate()
     end = time.time()
@@ -104,6 +107,7 @@ class CodeEvaluatorServicer(code_eval.CodeEvaluatorServicer):
 def write_to_file(filename, prog_name, code):
     content = python_template % (code, prog_name)
     f = open(filename, 'w')
+    print(content)
     f.write(content)
     f.close()
 
