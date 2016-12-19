@@ -16,14 +16,17 @@ queue = sqs.get_queue_by_name(QueueName='SubmissionQueue')
 return_queue = sqs.get_queue_by_name(QueueName = 'ReturnQueue')
 
 def serve():
-    start_docker()
-
+    waiting = True
     while True:
-        print("Waiting for message...")
+        if waiting:
+            print("\n\nWaiting for message...\n")
+            waiting = False
+
         for message in queue.receive_messages(
             MessageAttributeNames=['All'],
             WaitTimeSeconds=20
         ):
+            waiting = True
             print("Received message")
 
             req_id = ''
@@ -80,8 +83,6 @@ def serve():
 
             # Let the queue know that the message is processed
             message.delete()
-
-            start_docker()
 
 def send_message(req_id, success, err_msg, time_taken, failed_case):
     return_queue.send_message(MessageBody="Response", MessageAttributes={
@@ -164,6 +165,9 @@ def check_testcases(testcases):
 
 
 def test(code, tests):
+    # Start docker
+    start_docker()
+
     # Connect to server
     channel = grpc.insecure_channel('%s:%d' % (address, port))
     stub = code_eval.CodeEvaluatorStub(channel)

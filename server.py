@@ -4,8 +4,9 @@ import os
 import grpc
 import time
 import random
-import subprocess
+import subprocess32 as subprocess
 import json
+import signal
 
 # Our service's address
 address = "[::]"
@@ -45,10 +46,28 @@ if __name__ == "__main__":
 def run_test_case(test_case):
     in_fd, out_fd = os.pipe()
 
-    start = time.time()
     print(["python", test_fn, test_case, str(out_fd)])
-    p = subprocess.Popen(["python", test_fn, test_case, str(out_fd)], stdout=subprocess.PIPE)
-    stdout, stderr = p.communicate()
+
+    start = time.time()
+    process = subprocess.Popen(["python", test_fn, test_case, str(out_fd)], stdout=subprocess.PIPE, preexec_fn=os.setsid, close_fds=False)
+    try:
+        stdout, stderr = process.communicate(timeout=10)
+    except subprocess.TimeoutExpired:
+        print("Timeout: %d" % process.pid)
+        try:
+            os.killpg(process.pid, signal.SIGINT)
+        except:
+            print("Error: no process %d" % process.pid)
+
+        stdout, stderr = process.communicate()
+        end = time.time()
+        time_taken = (end - start) * 1000
+
+        os.close(in_fd)
+        os.close(out_fd)
+
+        return 1, time_taken, "Test case timed out", stdout
+
     end = time.time()
     time_taken = (end - start) * 1000
 
@@ -57,7 +76,7 @@ def run_test_case(test_case):
     os.close(in_fd)
     os.close(out_fd)
 
-    rc = p.returncode
+    rc = process.returncode
 
     return rc, time_taken, result, stdout
 
