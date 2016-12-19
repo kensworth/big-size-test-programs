@@ -21,80 +21,92 @@ def serve():
     while True:
         print("Waiting for message...")
         for message in queue.receive_messages(
-            MessageAttributeNames=['Submission', 'Tests'],
+            MessageAttributeNames=['All'],
             WaitTimeSeconds=20
         ):
             print("Received message")
 
+            req_id = ''
             code = ''
             tests = ''
             if message.message_attributes is not None:
+                print(message.message_attributes)
+                # Get request ID
+                msgRequestId = message.message_attributes.get('RequestId')
+                if msgRequestId is not None:
+                    req_id = msgRequestId.get('StringValue')
+                else:
+                    print("Error, no request ID")
+                    message.delete()
+                    continue
+
+                # Get user code
                 msgSubmission = message.message_attributes.get('Submission')
                 if msgSubmission is not None:
                     code = msgSubmission.get('StringValue')
+                else:
+                    print("Error, no user code")
+                    send_message(req_id, False, "Bad user code", 0, "")
+                    message.delete()
+
+                # Get test cases
                 msgTests = message.message_attributes.get('Tests')
                 if msgTests is not None:
                     tests = msgTests.get('StringValue')
                 else:
-                    f = open('test/testcases.json', 'r')
-                    tests = f.read()
-                    f.close()
+                    print("Error, no test cases")
+                    send_message(req_id, False, "Bad test case", 0, "")
+                    message.delete()
+            else:
+                print("Error, no message attributes")
+                message.delete()
+                continue
 
+            print('Got ID: {0}'.format(req_id))
             print('Got code: {0}'.format(code))
             print('Got tests: {0}'.format(tests))
 
             tests, ok = check_testcases(tests)
             if ok == False:
                 print("Got bad test case: %s" % tests)
-
-                return_queue.send_message(MessageBody="Response", MessageAttributes={
-                    'ID': {
-                        'DataType': 'String',
-                        'StringValue': 'tempId'
-                    },
-                    'Success':{
-                        'DataType': 'Number',
-                        'StringValue': "0"
-                    },
-                    'ErrorMessage':{
-                        'DataType': 'String',
-                        'StringValue': "Bad test case"
-                    },
-                })
-                
+                send_message(req_id, False, "Bad test case", 0, "")
                 message.delete()
                 continue
 
             results = test(code, tests)
             print(results.failed_case)
 
-            return_queue.send_message(MessageBody="Response", MessageAttributes={
-                'ID': {
-                    'DataType': 'String',
-                    'StringValue': 'tempId'
-                },
-                'Success':{
-                    'DataType': 'Number',
-                    'StringValue': ("1" if results.success else "0")
-                },
-                'ErrorMessage':{
-                    'DataType': 'String',
-                    'StringValue': (results.err_msg if results.err_msg != "" else "N/A")
-                },
-                'TimeTaken':{
-                    'DataType': 'Number',
-                    'StringValue': str(results.time_taken)
-                },
-                'FailedCase':{
-                    'DataType': 'String',
-                    'StringValue': (results.failed_case if results.failed_case != "" else "{}")
-                } 
-            })
+            send_message(req_id, results.success, results.err_msg, results.time_taken, results.failed_case)
 
             # Let the queue know that the message is processed
             message.delete()
 
             start_docker()
+
+def send_message(req_id, success, err_msg, time_taken, failed_case):
+    return_queue.send_message(MessageBody="Response", MessageAttributes={
+        'RequestId': {
+            'DataType': 'String',
+            'StringValue': req_id
+        },
+        'Success':{
+            'DataType': 'Number',
+            'StringValue': ("1" if success else "0")
+        },
+        'ErrorMessage':{
+            'DataType': 'String',
+            'StringValue': (err_msg if err_msg != "" else "N/A")
+        },
+        'TimeTaken':{
+            'DataType': 'Number',
+            'StringValue': str(time_taken)
+        },
+        'FailedCase':{
+            'DataType': 'String',
+            'StringValue': (failed_case if failed_case != "" else "{}")
+        }
+    })
+
 
 def start_docker():
     # Run ./scripts/run_docker.sh
