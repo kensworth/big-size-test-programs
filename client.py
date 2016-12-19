@@ -4,6 +4,7 @@ import grpc
 import sys
 import time
 import boto3
+import json
 
 address = "localhost"
 port = 8000
@@ -42,6 +43,28 @@ def serve():
             print('Got code: {0}'.format(code))
             print('Got tests: {0}'.format(tests))
 
+            tests, ok = check_testcases(tests)
+            if ok == False:
+                print("Got bad test case: %s" % tests)
+
+                return_queue.send_message(MessageBody="Response", MessageAttributes={
+                    'ID': {
+                        'DataType': 'String',
+                        'StringValue': 'tempId'
+                    },
+                    'Success':{
+                        'DataType': 'Number',
+                        'StringValue': "0"
+                    },
+                    'ErrorMessage':{
+                        'DataType': 'String',
+                        'StringValue': "Bad test case"
+                    },
+                })
+                
+                message.delete()
+                continue
+
             results = test(code, tests)
             print(results.failed_case)
 
@@ -78,6 +101,56 @@ def start_docker():
     p = subprocess.Popen(["sh", "scripts/run_docker.sh"]).wait()
     time.sleep(1)
 
+
+def check_testcases(testcases):
+    if testcases == None:
+        return testcases, False
+
+    tests_json = json.loads(testcases)
+    if "program_name" not in tests_json or \
+        "tests" not in tests_json:
+        return testcases, False
+
+    if "call_signature" not in tests_json:
+        tests_json["call_signature"] = ""
+
+    prog_name = tests_json["program_name"]
+    if isinstance(prog_name, str):
+        return testcases, False
+    if " " in prog_name:
+        return testcases, False
+
+    call_sig = tests_json["call_signature"]
+    if isinstance(call_sig, str):
+        return testcases, False
+    call_sig_arr = [arg.strip() for arg in call_sig.split(',') if arg.strip() != ""]
+    for arg in call_sig_arr:
+        if " " in arg:
+            return testcases, False
+
+    tests = tests_json["tests"]
+    if type(tests) != list:
+        return testcases, False
+
+    for test in tests:
+        if len(call_sig_arr) == 0 and "input" not in test:
+            test["input"] = {}
+        if "expected" not in test or "input" not in test:
+            return testcases, False
+        inputs = test["input"]
+        if type(inputs) != dict:
+            print("0")
+            return testcases, False
+        args = inputs.keys()
+        if len(args) != len(call_sig_arr):
+            return testcases, False
+        for arg in args:
+            if arg.strip() not in call_sig_arr:
+                return testcases, False
+
+    return json.dumps(tests_json), True
+
+
 def test(code, tests):
     # Connect to server
     channel = grpc.insecure_channel('%s:%d' % (address, port))
@@ -89,7 +162,10 @@ def test(code, tests):
     request.test_cases = tests
 
     # Query the server
-    reply = stub.Eval(request)
+    try:
+        reply = stub.Eval(request)
+    except:
+        reply = code_eval.EvalReply(success=False, err_msg="RPC error")
 
     # Print the response
     print(reply.err_msg)
