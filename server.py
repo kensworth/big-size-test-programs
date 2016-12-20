@@ -16,27 +16,35 @@ port = 8000
 # Template for generated .py file
 test_fn = "test.py"
 python_template = '''%s
+
 import sys
 import json
 import os
 import inspect
+import time
 if __name__ == "__main__":
     parent_fd = int(sys.argv[2])
     try:
         test = json.loads(sys.argv[1])
         input_values = test["input"]
         expected_output = test["expected"]
+        start = time.time()
         ret = %s(**input_values)
+        end = time.time()
+        time_taken = (end - start) * 1000
         if parent_fd == None:
             sys.exit(0)
         if ret == expected_output:
+            os.write(parent_fd, "%%d\\n" %% time_taken)
             os.write(parent_fd, "Test case passed.")
             sys.exit(0)
         else:
+            os.write(parent_fd, "%%d\\n" %% time_taken)
             os.write(parent_fd, "%%s" %% ret)
             sys.exit(1)
     except Exception as e:
         frame = inspect.trace()[-1]
+        os.write(parent_fd, "0\\n")
         os.write(parent_fd, "Line %%d: %%s: %%s" %% (frame[2], type(e).__name__, e))
         sys.exit(1)
 '''
@@ -48,10 +56,16 @@ def run_test_case(test_case):
 
     print(["python", test_fn, test_case, str(out_fd)])
 
-    start = time.time()
-    process = subprocess.Popen(["python", test_fn, test_case, str(out_fd)], stdout=subprocess.PIPE, preexec_fn=os.setsid, close_fds=False)
     try:
-        stdout, stderr = process.communicate(timeout=10)
+        process = subprocess.Popen(["python", test_fn, test_case, str(out_fd)], stdout=subprocess.PIPE, preexec_fn=os.setsid, close_fds=False)
+    except:
+        print("Error")
+        os.close(in_fd)
+        os.close(out_fd)
+        return 1, 0, "Fatal error.", ""
+
+    try:
+        stdout, stderr = process.communicate(timeout=6)
     except subprocess.TimeoutExpired:
         print("Timeout: %d" % process.pid)
         try:
@@ -60,18 +74,17 @@ def run_test_case(test_case):
             print("Error: no process %d" % process.pid)
 
         stdout, stderr = process.communicate()
-        end = time.time()
-        time_taken = (end - start) * 1000
-
         os.close(in_fd)
         os.close(out_fd)
 
-        return 1, time_taken, "Test case timed out", stdout
-
-    end = time.time()
-    time_taken = (end - start) * 1000
+        return 1, 0, "Time Limit Exceeded.", stdout
 
     result = os.read(in_fd, 1024)
+    time_taken_str = result[:result.index('\n')]
+    result = result[result.index('\n')+1:]
+    time_taken = float(time_taken_str)
+    print("time taken: %s" % time_taken_str)
+    print("result: %s" % result)
 
     os.close(in_fd)
     os.close(out_fd)

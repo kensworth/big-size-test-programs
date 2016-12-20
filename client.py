@@ -19,6 +19,8 @@ def serve():
     waiting = True
     while True:
         if waiting:
+            # Start docker
+            start_docker()
             print("\n\nWaiting for message...\n")
             waiting = False
 
@@ -165,9 +167,6 @@ def check_testcases(testcases):
 
 
 def test(code, tests):
-    # Start docker
-    start_docker()
-
     # Connect to server
     channel = grpc.insecure_channel('%s:%d' % (address, port))
     stub = code_eval.CodeEvaluatorStub(channel)
