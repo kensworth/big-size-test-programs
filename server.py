@@ -41,12 +41,12 @@ if __name__ == "__main__":
         else:
             os.write(parent_fd, "%%d\\n" %% time_taken)
             os.write(parent_fd, "%%s" %% ret)
-            sys.exit(1)
+            sys.exit(2)
     except Exception as e:
         frame = inspect.trace()[-1]
         os.write(parent_fd, "0\\n")
         os.write(parent_fd, "Line %%d: %%s: %%s" %% (frame[2], type(e).__name__, e))
-        sys.exit(1)
+        sys.exit(2)
 '''
 
 
@@ -64,6 +64,8 @@ def run_test_case(test_case):
         os.close(out_fd)
         return 1, 0, "Fatal error.", ""
 
+    print("Program started")
+
     try:
         stdout, stderr = process.communicate(timeout=6)
     except subprocess.TimeoutExpired:
@@ -78,6 +80,19 @@ def run_test_case(test_case):
         os.close(out_fd)
 
         return 1, 0, "Time Limit Exceeded.", stdout
+    except:
+        print("Error")
+        os.close(in_fd)
+        os.close(out_fd)
+        return 1, 0, "Error", ""
+
+    rc = process.returncode
+    print("Program finished, error code: %d" % rc)
+    if rc == 1:
+        print("Syntax error")
+        os.close(in_fd)
+        os.close(out_fd)
+        return rc, 0, "Syntax error", ""
 
     result = os.read(in_fd, 1024)
     time_taken_str = result[:result.index('\n')]
@@ -88,8 +103,6 @@ def run_test_case(test_case):
 
     os.close(in_fd)
     os.close(out_fd)
-
-    rc = process.returncode
 
     return rc, time_taken, result, stdout
 
